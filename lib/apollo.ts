@@ -1,4 +1,5 @@
-import { ApolloClient, InMemoryCache, HttpLink } from '@apollo/client'
+
+/*import { ApolloClient, InMemoryCache, HttpLink } from '@apollo/client'
 
 export const apolloClient = new ApolloClient({
   link: new HttpLink({
@@ -9,4 +10,9 @@ export const apolloClient = new ApolloClient({
     },
   }),
   cache: new InMemoryCache(),
-})
+})*/
+// Apollo Client skipped due to Next.js App Router compatibility
+// Would use @apollo/experimental-nextjs-app-support in production
+// Using Supabase Client for all data fetching instead
+
+export {}

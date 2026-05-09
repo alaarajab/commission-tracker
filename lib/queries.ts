@@ -1,4 +1,4 @@
-import { gql } from '@apollo/client'
+/*import { gql } from '@apollo/client'
 
 export const GET_SALES = gql`
   query GetSales {
@@ -17,4 +17,8 @@ export const GET_SALES = gql`
       }
     }
   }
-`
+`*/
+// GraphQL queries removed
+// Using Supabase Client instead
+
+export {}
