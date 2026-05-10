@@ -46,21 +46,31 @@ export default function Dashboard() {
 
       {/* Stat Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <StatCard role={role} refreshKey={refreshKey}/>
+        <StatCard role={role} refreshKey={refreshKey}  currentAgent={currentAgent}/>
       </div>
 
       {/* Chart + Form */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-  <CommissionChart refreshKey={refreshKey} />
+  <CommissionChart refreshKey={refreshKey} role={role} currentAgent={currentAgent}/>
+  
   <div className="bg-white rounded-xl shadow-md p-6 flex flex-col justify-start gap-4">
-  <div>
-    <h2 className="text-lg font-semibold text-gray-800 mb-4">Add New Sale</h2>
-    <AddSaleForm onSaleAdded={() => setRefreshKey(k => k + 1)} />
-  </div>
-  <div>
-    <h2 className="text-lg font-semibold text-gray-800 mb-4">Add New Agent</h2>
-    <AddAgentForm onAgentAdded={() => setRefreshKey(k => k + 1)} />
-  </div>
+  {role === 'admin' && (
+    <>
+      <div>
+        <h2 className="text-lg font-semibold text-gray-800 mb-4">Add New Sale</h2>
+        <AddSaleForm onSaleAdded={() => setRefreshKey(k => k + 1)} />
+      </div>
+      <div>
+        <h2 className="text-lg font-semibold text-gray-800 mb-4">Add New Agent</h2>
+        <AddAgentForm onAgentAdded={() => setRefreshKey(k => k + 1)} />
+      </div>
+    </>
+  )}
+  {role === 'agent' && (
+    <div className="flex items-center justify-center h-full">
+      <p className="text-gray-400 text-sm">Read-only view</p>
+    </div>
+  )}
 </div>
 </div>
 

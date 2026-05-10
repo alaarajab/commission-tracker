@@ -18,34 +18,46 @@ interface ChartData {
   commission: number
 }
 
-export default function CommissionChart({ refreshKey }: { refreshKey: number }) {
+export default function CommissionChart({ refreshKey, role, currentAgent }: { 
+  refreshKey: number
+  role: 'admin' | 'agent'
+  currentAgent: string 
+}) {
   const [data, setData] = useState<ChartData[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    async function fetchChartData() {
-      const { data: commissions } = await supabase
-        .from('commissions')
-        .select('amount, paid_at, agents(name)')
+  async function fetchChartData() {
+    const { data: agentsData } = await supabase
+      .from('agents')
+      .select('id, name')
 
-      const grouped: Record<string, number> = {}
+    const { data: commissionsData } = await supabase
+      .from('commissions')
+      .select('amount, agent_id')
 
-      commissions?.forEach((c: any) => {
-        const name = c.agents?.name || 'Unknown'
-        grouped[name] = (grouped[name] || 0) + c.amount
-      })
+    const grouped: Record<string, number> = {}
 
-      const chartData = Object.entries(grouped).map(([name, commission]) => ({
-        name,
-        commission,
-      }))
+    commissionsData?.forEach((c) => {
+      const agentName = agentsData?.find(a => a.id === c.agent_id)?.name || 'Unknown'
+      
+      // If agent view, only show current agent's data
+      if (role === 'agent' && agentName !== currentAgent) return
+      
+      grouped[agentName] = (grouped[agentName] || 0) + c.amount
+    })
 
-      setData(chartData)
-      setIsLoading(false)
-    }
+    const chartData = Object.entries(grouped).map(([name, commission]) => ({
+      name,
+      commission,
+    }))
 
-    fetchChartData()
-  }, [refreshKey])
+    setData(chartData)
+    setIsLoading(false)
+  }
+
+  fetchChartData()
+}, [refreshKey, role, currentAgent])
 
   if (isLoading) return <p className="text-gray-400">Loading chart...</p>
 
