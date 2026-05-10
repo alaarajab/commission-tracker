@@ -13,7 +13,7 @@ import { Plus, X } from 'lucide-react'
 // Zod Schema - defines the rules for the form
 const saleSchema = z.object({
   property_address: z.string().min(5, 'Address must be at least 5 characters'),
-  sale_amount: z.number().min(1000, 'Amount must be at least $1,000'),
+  sale_amount: z.coerce.number().min(1000, 'Amount must be at least $1,000'),
   sale_date: z.string().min(1, 'Date is required'),
   agent_id: z.string().min(1, 'Please select an agent'),
 })
@@ -25,7 +25,7 @@ interface Agent {
   name: string
 }
 
-export default function AddSaleForm() {
+export default function AddSaleForm({ onSaleAdded }: { onSaleAdded: () => void }) {
   const [open, setOpen] = useState(false)
   const [agents, setAgents] = useState<Agent[]>([])
 
@@ -35,7 +35,7 @@ export default function AddSaleForm() {
     reset,
     formState: { errors, isSubmitting },
   } = useForm<SaleForm>({
-    resolver: zodResolver(saleSchema),
+    resolver: zodResolver(saleSchema) as any,
   })
 
   useEffect(() => {
@@ -46,11 +46,11 @@ export default function AddSaleForm() {
       setAgents(data || [])
     }
     fetchAgents()
-  }, [])
+  }, [open])
 
   const onSubmit: SubmitHandler<SaleForm> = async (data) => {
   try {
-    const { error } = await supabase
+    const { data: newSale, error } = await supabase
       .from('sales')
       .insert({
         property_address: data.property_address,
@@ -59,12 +59,26 @@ export default function AddSaleForm() {
         agent_id: data.agent_id,
         status: 'pending',
       })
+      .select('id, agent_id')
+      .single()
 
     if (error) throw error
+
+    if (newSale) {
+      await supabase
+        .from('commissions')
+        .insert({
+          sale_id: newSale.id,
+          agent_id: newSale.agent_id,
+          amount: data.sale_amount * 0.03,
+          paid_at: null,
+        })
+    }
 
     toast.success('Sale added successfully!')
     reset()
     setOpen(false)
+    onSaleAdded()
   } catch (err) {
     toast.error('Failed to add sale. Please try again.')
   }
@@ -97,6 +111,9 @@ export default function AddSaleForm() {
               </button>
             </Dialog.Close>
           </div>
+          <Dialog.Description className="sr-only">
+  Fill in the form to add a new sale
+</Dialog.Description>
 
           {/* Form */}
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -107,9 +124,9 @@ export default function AddSaleForm() {
                 Property Address
               </label>
               <input
-  {...register('sale_amount', { valueAsNumber: true })}
-  type="number"
-  placeholder="450000"
+  {...register('property_address')}
+  type="text"
+  placeholder="123 Oak Street"
   className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500"
 />
               {errors.property_address && (

@@ -6,6 +6,7 @@ import { DollarSign, CheckCircle, Clock } from 'lucide-react'
 
 interface StatCardProps {
   role: 'admin' | 'agent'
+  refreshKey: number
 }
 
 async function fetchStats() {
@@ -24,10 +25,12 @@ async function fetchStats() {
   return { total, paid, pending }
 }
 
-export default function StatCard({ role }: StatCardProps) {
+export default function StatCard({ role, refreshKey }: StatCardProps) {
   const { data: stats, isLoading } = useQuery({
-    queryKey: ['commission-stats'],
+    queryKey: ['commission-stats', refreshKey],
     queryFn: fetchStats,
+    staleTime: 0,
+    refetchOnMount: true,
   })
 
   if (isLoading) return <p className="text-gray-400">Loading stats...</p>

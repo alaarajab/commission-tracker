@@ -18,7 +18,7 @@ interface ChartData {
   commission: number
 }
 
-export default function CommissionChart() {
+export default function CommissionChart({ refreshKey }: { refreshKey: number }) {
   const [data, setData] = useState<ChartData[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
@@ -26,7 +26,7 @@ export default function CommissionChart() {
     async function fetchChartData() {
       const { data: commissions } = await supabase
         .from('commissions')
-        .select('amount, agents(name)')
+        .select('amount, paid_at, agents(name)')
 
       const grouped: Record<string, number> = {}
 
@@ -45,7 +45,7 @@ export default function CommissionChart() {
     }
 
     fetchChartData()
-  }, [])
+  }, [refreshKey])
 
   if (isLoading) return <p className="text-gray-400">Loading chart...</p>
 
