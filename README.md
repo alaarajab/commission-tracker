@@ -92,7 +92,3 @@ npm install
 # add my Supabase keys to .env.local (later)
 npm run dev
 ```
-
----
-
-Built by Alaa Rajab
