@@ -92,3 +92,7 @@ npm install
 # add my Supabase keys to .env.local (later)
 npm run dev
 ```
+
+## Deployment
+
+https://commission-tracker-pearl.vercel.app/
