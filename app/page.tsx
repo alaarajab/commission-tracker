@@ -7,6 +7,7 @@ import CommissionChart from '@/components/CommissionChart'
 import AddSaleForm from '@/components/AddSaleForm'
 import { LayoutDashboard } from 'lucide-react'
 import AddAgentForm from '@/components/AddAgentForm'
+import CommissionChat from '@/components/CommissionChat'
 
 export default function Dashboard() {
   const [role, setRole] = useState<'admin' | 'agent'>('admin')
@@ -76,7 +77,7 @@ export default function Dashboard() {
 
       {/* Sales Table */}
       <SalesTable role={role} refreshKey={refreshKey} currentAgent={currentAgent} onRefresh={() => setRefreshKey(k => k + 1)} />
-
+<CommissionChat />
 
     </main>
   )
