@@ -6,7 +6,6 @@ import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as Dialog from '@radix-ui/react-dialog'
 import { toast } from 'sonner'
-import { supabase } from '@/lib/supabase'
 import { UserPlus, X } from 'lucide-react'
 
 const agentSchema = z.object({
@@ -30,17 +29,15 @@ export default function AddAgentForm({ onAgentAdded }: { onAgentAdded: () => voi
     defaultValues: { role: 'agent' }
   })
 
-  const onSubmit: SubmitHandler<AgentForm> = async (data) => {
+ const onSubmit: SubmitHandler<AgentForm> = async (data) => {
     try {
-      const { error } = await supabase
-        .from('agents')
-        .insert({
-          name: data.name,
-          email: data.email,
-          role: data.role,
-        })
+      const res = await fetch('/api/agents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
 
-      if (error) throw error
+      if (!res.ok) throw new Error('Failed to add agent')
 
       toast.success('Agent added successfully!')
       reset()

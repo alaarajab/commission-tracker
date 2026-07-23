@@ -50,30 +50,13 @@ export default function AddSaleForm({ onSaleAdded }: { onSaleAdded: () => void }
 
   const onSubmit: SubmitHandler<SaleForm> = async (data) => {
   try {
-    const { data: newSale, error } = await supabase
-      .from('sales')
-      .insert({
-        property_address: data.property_address,
-        sale_amount: data.sale_amount,
-        sale_date: data.sale_date,
-        agent_id: data.agent_id,
-        status: 'pending',
-      })
-      .select('id, agent_id')
-      .single()
+    const res = await fetch('/api/sales', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
 
-    if (error) throw error
-
-    if (newSale) {
-      await supabase
-        .from('commissions')
-        .insert({
-          sale_id: newSale.id,
-          agent_id: newSale.agent_id,
-          amount: data.sale_amount * 0.03,
-          paid_at: null,
-        })
-    }
+    if (!res.ok) throw new Error('Failed to add sale')
 
     toast.success('Sale added successfully!')
     reset()

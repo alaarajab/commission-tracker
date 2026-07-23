@@ -1,13 +1,8 @@
 import { openai } from '@ai-sdk/openai'
 import { streamText, createUIMessageStreamResponse, convertToModelMessages, stepCountIs } from 'ai'
 import { zodSchema } from '@ai-sdk/provider-utils'
-import { createClient } from '@supabase/supabase-js'
+import { supabaseAdmin } from '@/lib/supabaseAdmin'
 import { z } from 'zod'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
 
 export async function POST(req: Request) {
   const { messages } = await req.json()
@@ -48,7 +43,7 @@ Never ask multiple clarifying questions — make your best guess and call the to
           let agentId: string | null = null
 
           if (agentName) {
-            const { data: agent } = await supabase
+            const { data: agent } = await supabaseAdmin
               .from('agents')
               .select('id, name')
               .ilike('name', `%${agentName}%`)
@@ -57,7 +52,7 @@ Never ask multiple clarifying questions — make your best guess and call the to
             agentId = agent.id
           }
 
-          let query = supabase
+          let query = supabaseAdmin
             .from('commissions')
             .select(`
               amount,
@@ -106,7 +101,7 @@ Never ask multiple clarifying questions — make your best guess and call the to
         })),
         execute: async (params: any) => {
           const { agentName } = params
-          let query = supabase
+          let query = supabaseAdmin
             .from('sales')
             .select(`
               id,
@@ -119,7 +114,7 @@ Never ask multiple clarifying questions — make your best guess and call the to
             .eq('status', 'pending')
 
           if (agentName) {
-            const { data: agent } = await supabase
+            const { data: agent } = await supabaseAdmin
               .from('agents')
               .select('id')
               .ilike('name', `%${agentName}%`)
@@ -140,7 +135,7 @@ Never ask multiple clarifying questions — make your best guess and call the to
         })),
         execute: async (params: any) => {
           const { limit } = params
-          const { data, error } = await supabase
+          const { data, error } = await supabaseAdmin
             .from('commissions')
             .select(`
               amount,
@@ -168,11 +163,11 @@ Never ask multiple clarifying questions — make your best guess and call the to
         description: 'Get summary of all sales — total count, total sale amount, total commissions paid',
         inputSchema: zodSchema(z.object({})),
         execute: async () => {
-          const { data: sales, error: salesError } = await supabase
+          const { data: sales, error: salesError } = await supabaseAdmin
             .from('sales')
             .select('sale_amount, status')
 
-          const { data: commissions, error: commError } = await supabase
+          const { data: commissions, error: commError } = await supabaseAdmin
             .from('commissions')
             .select('amount, paid_at')
 

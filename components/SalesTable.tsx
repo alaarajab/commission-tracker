@@ -65,44 +65,13 @@ export default function SalesTable({ role, refreshKey, currentAgent, onRefresh }
   }
 
   const updateStatus = async (saleId: string, newStatus: string) => {
-    const { error } = await supabase
-      .from('sales')
-      .update({ status: newStatus })
-      .eq('id', saleId)
+    const res = await fetch(`/api/sales/${saleId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus }),
+    })
 
-    if (!error) {
-      if (newStatus === 'paid') {
-        const { data: existing } = await supabase
-          .from('commissions')
-          .select('id')
-          .eq('sale_id', saleId)
-          .single()
-
-        if (existing) {
-          await supabase
-            .from('commissions')
-            .update({ paid_at: new Date().toISOString() })
-            .eq('sale_id', saleId)
-        } else {
-          const sale = sales.find(s => s.id === saleId)
-          await supabase
-            .from('commissions')
-            .insert({
-              sale_id: saleId,
-              agent_id: sale?.agent_id,
-              amount: (sale?.sale_amount || 0) * 0.03,
-              paid_at: new Date().toISOString(),
-            })
-        }
-      }
-
-      if (newStatus === 'approved') {
-        await supabase
-          .from('commissions')
-          .update({ paid_at: null })
-          .eq('sale_id', saleId)
-      }
-
+    if (res.ok) {
       toast.success(`Sale ${newStatus}!`)
       setSales(prev =>
         prev.map(s => s.id === saleId ? { ...s, status: newStatus } : s)
