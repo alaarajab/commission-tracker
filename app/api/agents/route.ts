@@ -18,7 +18,8 @@ export async function POST(req: Request) {
   const { error } = await supabaseAdmin.from('agents').insert(parsed.data)
 
   if (error) {
-    return Response.json({ error: 'Failed to create agent' }, { status: 500 })
+    console.error('SUPABASE INSERT ERROR:', JSON.stringify(error))
+    return Response.json({ error: error.message }, { status: 500 })
   }
 
   return Response.json({ ok: true }, { status: 201 })
