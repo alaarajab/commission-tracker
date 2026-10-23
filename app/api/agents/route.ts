@@ -8,18 +8,24 @@ const agentSchema = z.object({
 })
 
 export async function POST(req: Request) {
-  const body = await req.json()
-  const parsed = agentSchema.safeParse(body)
+  // TODO: check the caller is a logged-in admin here, return 403 if not
 
+  let body: unknown
+  try {
+    body = await req.json()
+  } catch {
+    return Response.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
+
+  const parsed = agentSchema.safeParse(body)
   if (!parsed.success) {
     return Response.json({ error: 'Invalid agent data' }, { status: 400 })
   }
 
   const { error } = await supabaseAdmin.from('agents').insert(parsed.data)
-
   if (error) {
-    console.error('SUPABASE INSERT ERROR:', JSON.stringify(error))
-    return Response.json({ error: error.message }, { status: 500 })
+    console.error('SUPABASE INSERT ERROR:', error)
+    return Response.json({ error: 'Failed to create agent' }, { status: 500 })
   }
 
   return Response.json({ ok: true }, { status: 201 })
