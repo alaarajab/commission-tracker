@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { LayoutDashboard } from 'lucide-react'
+import { LayoutDashboard, ShieldCheck, UserRound } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/components/AuthProvider'
+import { DEMO_ACCOUNTS, DEMO_PASSWORD, type DemoRole } from '@/lib/demo'
 
 type Mode = 'signin' | 'signup'
 
@@ -31,6 +32,7 @@ export default function LoginPage() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [demoBusy, setDemoBusy] = useState<DemoRole | null>(null)
 
   // Already signed in? Go to the dashboard
   useEffect(() => {
@@ -41,6 +43,23 @@ export default function LoginPage() {
     setMode(m)
     setError(null)
     setNotice(null)
+  }
+
+  // One-click demo login: no sign-up or email needed
+  const tryDemo = async (role: DemoRole) => {
+    setError(null)
+    setNotice(null)
+    setDemoBusy(role)
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: DEMO_ACCOUNTS[role],
+        password: DEMO_PASSWORD,
+      })
+      if (error) return setError('The demo is unavailable right now. Please try again later.')
+      router.replace('/')
+    } finally {
+      setDemoBusy(null)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -87,6 +106,33 @@ export default function LoginPage() {
           <LayoutDashboard className="text-blue-600" size={28} />
           <h1 className="text-2xl font-bold text-gray-800">Commission Tracker</h1>
         </div>
+
+        {DEMO_PASSWORD && (
+          <div className="bg-white rounded-xl shadow-md p-6 mb-4">
+            <p className="text-sm font-medium text-gray-800">Just looking?</p>
+            <p className="text-xs text-gray-500 mb-4">Explore the demo with one click. No sign-up needed.</p>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => tryDemo('admin')}
+                disabled={demoBusy !== null}
+                className="flex items-center justify-center gap-1.5 border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 rounded-lg py-2 text-sm font-medium disabled:opacity-50"
+              >
+                <ShieldCheck size={16} />
+                {demoBusy === 'admin' ? 'Signing in…' : 'Try as Admin'}
+              </button>
+              <button
+                type="button"
+                onClick={() => tryDemo('agent')}
+                disabled={demoBusy !== null}
+                className="flex items-center justify-center gap-1.5 border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg py-2 text-sm font-medium disabled:opacity-50"
+              >
+                <UserRound size={16} />
+                {demoBusy === 'agent' ? 'Signing in…' : 'Try as Agent'}
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="bg-white rounded-xl shadow-md p-6">
           {/* Tabs */}

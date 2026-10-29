@@ -10,6 +10,7 @@ import { LayoutDashboard, LogOut } from 'lucide-react'
 import AddAgentForm from '@/components/AddAgentForm'
 import CommissionChat from '@/components/CommissionChat'
 import { useAuth } from '@/components/AuthProvider'
+import { isDemoEmail } from '@/lib/demo'
 
 export default function Dashboard() {
   const router = useRouter()
@@ -47,9 +48,19 @@ export default function Dashboard() {
   // Role and name come from the login, not from a toggle
   const role = agent.role
   const currentAgent = agent.name
+  const isDemo = isDemoEmail(session.user.email)
 
   return (
     <main className="min-h-screen bg-gray-50 p-8">
+
+      {isDemo && (
+        <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <strong>Demo mode:</strong>{' '}
+          {role === 'admin'
+            ? "you're an admin. Add sales, approve them, add agents and ask the assistant anything. All changes reset every night."
+            : "you're an agent, so you only see your own sales. Ask the assistant about your commissions, or sign out and try the admin view."}
+        </div>
+      )}
 
       {/* Header */}
       <div className="flex items-center justify-between mb-8">

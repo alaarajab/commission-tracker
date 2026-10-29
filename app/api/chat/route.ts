@@ -9,6 +9,7 @@ import {
 import { checkChatRateLimit } from '@/lib/chatRateLimit'
 import { createChatTools, type ChatMessage } from '@/lib/chatTools'
 import { getCaller, type CallerAgent } from '@/lib/serverAuth'
+import { isDemoEmail } from '@/lib/demo'
 
 // Cost caps for the public demo
 const MAX_HISTORY_MESSAGES = 10 // only send the most recent messages to OpenAI
@@ -59,7 +60,8 @@ export async function POST(req: Request) {
   // Tools query the database AS this user, so RLS limits what they can see
   const tools = createChatTools(caller.db)
 
-  const limit = await checkChatRateLimit(req, caller.userId)
+  // Demo logins are shared by every visitor, so limit those per visitor (IP) instead of per login
+  const limit = await checkChatRateLimit(req, isDemoEmail(caller.agent.email) ? undefined : caller.userId)
   if (!limit.allowed) {
     return new Response(limit.message, { status: 429 })
   }
