@@ -5,7 +5,7 @@ import { useState, useMemo, useRef, useEffect } from 'react'
 
 export default function CommissionChat() {
   const transport = useMemo(() => new DefaultChatTransport({ api: '/api/chat' }), [])
-  const { messages, sendMessage, status } = useChat({ transport })
+  const { messages, sendMessage, status, error } = useChat({ transport })
   const [input, setInput] = useState('')
   const [open, setOpen] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -91,6 +91,12 @@ export default function CommissionChat() {
               </div>
             )}
 
+            {error && (
+              <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                {error.message || 'Something went wrong. Please try again.'}
+              </div>
+            )}
+
             <div ref={messagesEndRef} />
           </div>
 
@@ -106,6 +112,7 @@ export default function CommissionChat() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Ask about commissions..."
+              maxLength={500}
               className="flex-1 text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
             <button
