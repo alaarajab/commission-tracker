@@ -23,6 +23,7 @@ export default function AddAgentForm({ onAgentAdded }: { onAgentAdded: () => voi
     register,
     handleSubmit,
     reset,
+    setError,
     formState: { errors, isSubmitting },
   } = useForm<AgentForm>({
     resolver: zodResolver(agentSchema) as any,
@@ -37,7 +38,18 @@ export default function AddAgentForm({ onAgentAdded }: { onAgentAdded: () => voi
         body: JSON.stringify(data),
       })
 
-      if (!res.ok) throw new Error('Failed to add agent')
+      if (!res.ok) {
+        const body = await res.json().catch(() => null)
+
+        // Duplicate email: show the message under the Email field and keep the form open
+        if (res.status === 409 && body?.field === 'email') {
+          setError('email', { message: body.error })
+          toast.error(body.error)
+          return
+        }
+
+        throw new Error(body?.error ?? 'Failed to add agent')
+      }
 
       toast.success('Agent added successfully!')
       reset()
