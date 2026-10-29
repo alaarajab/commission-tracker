@@ -1,12 +1,19 @@
 import { openai } from '@ai-sdk/openai'
-import { streamText, createUIMessageStreamResponse, stepCountIs } from 'ai'
+import {
+  streamText,
+  createUIMessageStreamResponse,
+  stepCountIs,
+  convertToModelMessages,
+  safeValidateUIMessages,
+} from 'ai'
 import { checkChatRateLimit } from '@/lib/chatRateLimit'
-import { chatTools } from '@/lib/chatTools'
+import { chatTools, type ChatMessage } from '@/lib/chatTools'
 
 // Cost caps for the public demo
 const MAX_HISTORY_MESSAGES = 10 // only send the most recent messages to OpenAI
 const MAX_MESSAGE_CHARS = 500 // longest question a visitor can send
 const MAX_OUTPUT_TOKENS = 600 // longest answer the model can write
+const MAX_HISTORY_CHARS = 40_000 // total size of the history sent in one request
 
 function buildSystemPrompt() {
   const now = new Date()
@@ -41,34 +48,48 @@ export async function POST(req: Request) {
     return new Response(limit.message, { status: 429 })
   }
 
-  let body: any
+  let body: { messages?: unknown }
   try {
     body = await req.json()
   } catch {
     return new Response('Invalid request.', { status: 400 })
   }
 
-  const messages = Array.isArray(body?.messages) ? body.messages.slice(-MAX_HISTORY_MESSAGES) : []
-  if (messages.length === 0) {
+  const recent = Array.isArray(body?.messages) ? body.messages.slice(-MAX_HISTORY_MESSAGES) : []
+  if (recent.length === 0) {
     return new Response('No message provided.', { status: 400 })
   }
 
+  // History now includes tool calls and results, so cap its total size too
+  if (JSON.stringify(recent).length > MAX_HISTORY_CHARS) {
+    return new Response('This conversation is too long. Please refresh the page to start a new one.', { status: 400 })
+  }
+
+  // Check the messages really have the shape useChat sends, and that any
+  // tool inputs/results match our tool schemas
+  const validated = await safeValidateUIMessages<ChatMessage>({ messages: recent, tools: chatTools })
+  if (!validated.success) {
+    return new Response('Invalid conversation data.', { status: 400 })
+  }
+  const messages = validated.data
+
   const lastMessage = messages[messages.length - 1]
-  const lastText = (lastMessage?.parts ?? [])
-    .filter((p: any) => p.type === 'text')
-    .map((p: any) => p.text)
+  if (lastMessage.role !== 'user') {
+    return new Response('Invalid request.', { status: 400 })
+  }
+  const lastText = lastMessage.parts
+    .map((p) => (p.type === 'text' ? p.text : ''))
     .join('')
   if (lastText.length > MAX_MESSAGE_CHARS) {
     return new Response(`Please keep questions under ${MAX_MESSAGE_CHARS} characters.`, { status: 400 })
   }
 
-  const modelMessages = messages.map((m: any) => ({
-    role: m.role,
-    content: m.parts
-      ?.filter((p: any) => p.type === 'text')
-      .map((p: any) => p.text)
-      .join('') ?? '',
-  }))
+  // Keep text AND tool calls/results, so follow-up questions
+  // ("and the 4th one?") can use earlier answers
+  const modelMessages = await convertToModelMessages(messages, {
+    tools: chatTools,
+    ignoreIncompleteToolCalls: true,
+  })
 
   const result = streamText({
     model: openai('gpt-4o-mini'),
@@ -77,8 +98,6 @@ export async function POST(req: Request) {
     stopWhen: stepCountIs(5),
     maxOutputTokens: MAX_OUTPUT_TOKENS,
     tools: chatTools,
-    // Temporary debug logging: shows each step the bot takes
-    
     onError: ({ error }) => {
       console.error('CHAT ERROR:', error)
     },

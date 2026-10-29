@@ -1,4 +1,4 @@
-import { tool } from 'ai'
+import { tool, type InferUITools, type UIDataTypes, type UIMessage } from 'ai'
 import { z } from 'zod'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 
@@ -268,3 +268,6 @@ export const chatTools = {
     },
   }),
 }
+
+// Message type shared by the API route and the chat UI, so tool parts are typed
+export type ChatMessage = UIMessage<never, UIDataTypes, InferUITools<typeof chatTools>>

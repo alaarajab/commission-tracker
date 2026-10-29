@@ -2,22 +2,97 @@
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport } from 'ai'
 import { useState, useMemo, useRef, useEffect } from 'react'
+import ReactMarkdown, { type Components } from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import type { ChatMessage } from '@/lib/chatTools'
+
+// What to show while each tool is running / after it finished
+const TOOL_LABELS: Record<string, string> = {
+  getAgentCommissions: 'commissions',
+  getPendingSales: 'pending sales',
+  getTopAgents: 'top agents',
+  getSalesSummary: 'sales summary',
+}
+
+// Styles for the markdown the assistant writes (bold, lists, tables)
+const markdownComponents: Components = {
+  p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+  strong: ({ children }) => <strong className="font-semibold text-gray-900">{children}</strong>,
+  ul: ({ children }) => <ul className="list-disc pl-5 mb-2 last:mb-0 space-y-0.5">{children}</ul>,
+  ol: ({ children }) => <ol className="list-decimal pl-5 mb-2 last:mb-0 space-y-0.5">{children}</ol>,
+  li: ({ children }) => <li>{children}</li>,
+  a: ({ children, href }) => (
+    <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">
+      {children}
+    </a>
+  ),
+  table: ({ children }) => (
+    <div className="overflow-x-auto mb-2 last:mb-0">
+      <table className="text-xs border-collapse">{children}</table>
+    </div>
+  ),
+  th: ({ children }) => <th className="border border-gray-200 px-2 py-1 text-left font-semibold">{children}</th>,
+  td: ({ children }) => <td className="border border-gray-200 px-2 py-1">{children}</td>,
+}
+
+const SUGGESTIONS = [
+  'Who are the top 3 agents?',
+  'Show pending sales',
+  'How much commission was earned this month?',
+  'Give me a full summary',
+]
+
+function ToolStatus({ name, state }: { name: string; state: string }) {
+  const label = TOOL_LABELS[name] ?? 'data'
+
+  if (state === 'output-error') {
+    return <div className="text-xs text-red-600">Couldn&apos;t load {label}</div>
+  }
+
+  const done = state === 'output-available'
+  return (
+    <div className="flex items-center gap-1.5 text-xs text-gray-500">
+      {done ? (
+        <span className="text-green-600">✓</span>
+      ) : (
+        <span className="inline-block w-3 h-3 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin" />
+      )}
+      {done ? `Checked ${label}` : `Looking up ${label}…`}
+    </div>
+  )
+}
 
 export default function CommissionChat() {
   const transport = useMemo(() => new DefaultChatTransport({ api: '/api/chat' }), [])
-  const { messages, sendMessage, status, error } = useChat({ transport })
+  const { messages, sendMessage, status, error, setMessages, clearError } = useChat<ChatMessage>({ transport })
   const [input, setInput] = useState('')
   const [open, setOpen] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
+  // Busy from the moment a question is sent until the answer finishes
+  const busy = status === 'submitted' || status === 'streaming'
+
+  // Show typing dots until the assistant has something visible to show
+  const last = messages[messages.length - 1]
+  const waitingForFirstPart =
+    status === 'submitted' ||
+    (status === 'streaming' &&
+      (last?.role !== 'assistant' || !last.parts.some((p) => p.type === 'text' || p.type.startsWith('tool-'))))
+
   useEffect(() => {
     if (open) messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, open])
+  }, [messages, open, status])
 
   const handleSend = (text: string) => {
-    if (!text.trim()) return
+    if (!text.trim() || busy) return
+    clearError()
     sendMessage({ text })
     setInput('')
+  }
+
+  const startNewChat = () => {
+    setMessages([])
+    clearError()
   }
 
   return (
@@ -25,7 +100,7 @@ export default function CommissionChat() {
 
       {/* Chat window */}
       {open && (
-        <div className="flex flex-col w-[380px] h-[520px] bg-white border border-gray-200 rounded-2xl shadow-2xl overflow-hidden">
+        <div className="flex flex-col w-[380px] max-w-[calc(100vw-3rem)] h-[520px] bg-white border border-gray-200 rounded-2xl shadow-2xl overflow-hidden">
 
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 bg-blue-600">
@@ -33,12 +108,24 @@ export default function CommissionChat() {
               <div className="w-2 h-2 rounded-full bg-green-400" />
               <span className="text-white font-medium text-sm">Commission Assistant</span>
             </div>
-            <button
-              onClick={() => setOpen(false)}
-              className="text-white/70 hover:text-white text-lg leading-none"
-            >
-              ✕
-            </button>
+            <div className="flex items-center gap-3">
+              {messages.length > 0 && (
+                <button
+                  onClick={startNewChat}
+                  disabled={busy}
+                  className="text-white/80 hover:text-white text-xs disabled:opacity-40"
+                >
+                  New chat
+                </button>
+              )}
+              <button
+                onClick={() => setOpen(false)}
+                aria-label="Close chat"
+                className="text-white/70 hover:text-white text-lg leading-none"
+              >
+                ✕
+              </button>
+            </div>
           </div>
 
           {/* Messages */}
@@ -47,12 +134,7 @@ export default function CommissionChat() {
               <div className="space-y-3">
                 <p className="text-xs text-gray-500 text-center">Ask me anything about commissions</p>
                 <div className="flex flex-col gap-2">
-                  {[
-                    "What's my total commission this month?",
-                    "Show pending sales",
-                    "Who are the top 3 agents?",
-                    "Give me a full summary",
-                  ].map((q) => (
+                  {SUGGESTIONS.map((q) => (
                     <button
                       key={q}
                       onClick={() => handleSend(q)}
@@ -65,21 +147,45 @@ export default function CommissionChat() {
               </div>
             )}
 
-            {messages.map((m) => (
-              <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm leading-relaxed ${
-                  m.role === 'user'
-                    ? 'bg-blue-600 text-white rounded-br-sm'
-                    : 'bg-white border border-gray-200 text-gray-800 rounded-bl-sm'
-                }`}>
-                  {m.parts.map((part: any, i: number) =>
-                    part.type === 'text' ? <span key={i}>{part.text}</span> : null
+            {messages.map((m) => {
+              if (m.role === 'user') {
+                const text = m.parts.map((p) => (p.type === 'text' ? p.text : '')).join('')
+                return (
+                  <div key={m.id} className="flex justify-end">
+                    <div className="max-w-[85%] rounded-2xl rounded-br-sm px-3 py-2 text-sm leading-relaxed bg-blue-600 text-white whitespace-pre-wrap">
+                      {text}
+                    </div>
+                  </div>
+                )
+              }
+
+              const toolParts = m.parts.filter((p) => p.type.startsWith('tool-'))
+              const textParts = m.parts.filter((p) => p.type === 'text')
+              if (toolParts.length === 0 && textParts.length === 0) return null
+
+              return (
+                <div key={m.id} className="flex flex-col items-start gap-1.5">
+                  {toolParts.map((p, i) =>
+                    'state' in p ? (
+                      <ToolStatus key={i} name={p.type.replace(/^tool-/, '')} state={p.state ?? ''} />
+                    ) : null
+                  )}
+                  {textParts.length > 0 && (
+                    <div className="max-w-[85%] rounded-2xl rounded-bl-sm px-3 py-2 text-sm leading-relaxed bg-white border border-gray-200 text-gray-800">
+                      {textParts.map((p, i) =>
+                        p.type === 'text' ? (
+                          <ReactMarkdown key={i} remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                            {p.text}
+                          </ReactMarkdown>
+                        ) : null
+                      )}
+                    </div>
                   )}
                 </div>
-              </div>
-            ))}
+              )
+            })}
 
-            {status === 'streaming' && (
+            {waitingForFirstPart && (
               <div className="flex justify-start">
                 <div className="bg-white border border-gray-200 rounded-2xl rounded-bl-sm px-3 py-2">
                   <div className="flex gap-1 items-center h-4">
@@ -111,13 +217,13 @@ export default function CommissionChat() {
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask about commissions..."
+              placeholder={busy ? 'Thinking…' : 'Ask about commissions...'}
               maxLength={500}
               className="flex-1 text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
             <button
               type="submit"
-              disabled={status === 'streaming' || !input.trim()}
+              disabled={busy || !input.trim()}
               className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm disabled:opacity-40 hover:bg-blue-700 transition-colors"
             >
               Send
@@ -130,6 +236,7 @@ export default function CommissionChat() {
       {/* Floating button */}
       <button
         onClick={() => setOpen(!open)}
+        aria-label={open ? 'Close chat' : 'Open chat'}
         className="w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-all hover:scale-105"
       >
         {open ? (
