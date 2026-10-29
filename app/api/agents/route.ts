@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
+import { requireAdmin } from '@/lib/serverAuth'
 import { z } from 'zod'
 
 const agentSchema = z.object({
@@ -8,7 +9,8 @@ const agentSchema = z.object({
 })
 
 export async function POST(req: Request) {
-  // TODO: check the caller is a logged-in admin here, return 403 if not
+  const admin = await requireAdmin(req)
+  if (admin instanceof Response) return admin
 
   let body: unknown
   try {

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { authFetch } from '@/lib/authFetch'
 import { supabase } from '@/lib/supabase'
 import { Search } from 'lucide-react'
 import { toast } from 'sonner'
@@ -65,7 +66,7 @@ export default function SalesTable({ role, refreshKey, currentAgent, onRefresh }
   }
 
   const updateStatus = async (saleId: string, newStatus: string) => {
-    const res = await fetch(`/api/sales/${saleId}`, {
+    const res = await authFetch(`/api/sales/${saleId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: newStatus }),
@@ -78,7 +79,8 @@ export default function SalesTable({ role, refreshKey, currentAgent, onRefresh }
       )
       onRefresh()
     } else {
-      toast.error('Failed to update status')
+      const body = await res.json().catch(() => null)
+      toast.error(body?.error ?? 'Failed to update status')
     }
   }
 

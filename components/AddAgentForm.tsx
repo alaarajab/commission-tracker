@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { authFetch } from '@/lib/authFetch'
 import { useForm, SubmitHandler } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -32,7 +33,7 @@ export default function AddAgentForm({ onAgentAdded }: { onAgentAdded: () => voi
 
  const onSubmit: SubmitHandler<AgentForm> = async (data) => {
     try {
-      const res = await fetch('/api/agents', {
+      const res = await authFetch('/api/agents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -48,10 +49,11 @@ export default function AddAgentForm({ onAgentAdded }: { onAgentAdded: () => voi
           return
         }
 
-        throw new Error(body?.error ?? 'Failed to add agent')
+        toast.error(body?.error ?? 'Failed to add agent. Please try again.')
+        return
       }
 
-      toast.success('Agent added successfully!')
+      toast.success(`Agent added! ${data.name} can now create an account with ${data.email}.`)
       reset()
       setOpen(false)
       onAgentAdded()

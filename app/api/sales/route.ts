@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
+import { requireAdmin } from '@/lib/serverAuth'
 import { z } from 'zod'
 
 const saleSchema = z.object({
@@ -9,7 +10,15 @@ const saleSchema = z.object({
 })
 
 export async function POST(req: Request) {
-  const body = await req.json()
+  const admin = await requireAdmin(req)
+  if (admin instanceof Response) return admin
+
+  let body: unknown
+  try {
+    body = await req.json()
+  } catch {
+    return Response.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
   const parsed = saleSchema.safeParse(body)
 
   if (!parsed.success) {

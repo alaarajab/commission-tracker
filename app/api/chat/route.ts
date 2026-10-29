@@ -7,7 +7,8 @@ import {
   safeValidateUIMessages,
 } from 'ai'
 import { checkChatRateLimit } from '@/lib/chatRateLimit'
-import { chatTools, type ChatMessage } from '@/lib/chatTools'
+import { createChatTools, type ChatMessage } from '@/lib/chatTools'
+import { getCaller, type CallerAgent } from '@/lib/serverAuth'
 
 // Cost caps for the public demo
 const MAX_HISTORY_MESSAGES = 10 // only send the most recent messages to OpenAI
@@ -15,7 +16,7 @@ const MAX_MESSAGE_CHARS = 500 // longest question a visitor can send
 const MAX_OUTPUT_TOKENS = 600 // longest answer the model can write
 const MAX_HISTORY_CHARS = 40_000 // total size of the history sent in one request
 
-function buildSystemPrompt() {
+function buildSystemPrompt(me: CallerAgent) {
   const now = new Date()
   const today = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
 
@@ -34,16 +35,31 @@ Time periods:
 - Time filters apply to the sale date.
 - If a tool result includes allTimeTotals and the period amounts are $0, also tell the user the all-time amounts.
 
+Who you are talking to:
+- The user is ${me.name}, role: ${me.role}.
+- "My", "me" or "I" means agent "${me.name}": pass that name to the tools without asking.
+${me.role === 'admin'
+  ? '- As an admin, they can see data for all agents.'
+  : '- As an agent, they can only see their own data. If they ask about other agents or the whole team, explain that agents can only view their own sales and commissions.'}
+
 Agents:
 - If a tool says several agents match a name, list them and ask which one the user means.
 - If a tool says no agent was found, say so. Do not guess another agent.
-- If the user says "my" or "I" without giving a name, ask for their agent name.
 
 Style: concise and friendly. Format money as USD with commas, e.g. $18,000.`
 }
 
 export async function POST(req: Request) {
-  const limit = await checkChatRateLimit(req)
+  // Only logged-in users can use the assistant
+  const caller = await getCaller(req)
+  if (!caller) {
+    return new Response('Please sign in to use the assistant.', { status: 401 })
+  }
+
+  // Tools query the database AS this user, so RLS limits what they can see
+  const tools = createChatTools(caller.db)
+
+  const limit = await checkChatRateLimit(req, caller.userId)
   if (!limit.allowed) {
     return new Response(limit.message, { status: 429 })
   }
@@ -67,7 +83,7 @@ export async function POST(req: Request) {
 
   // Check the messages really have the shape useChat sends, and that any
   // tool inputs/results match our tool schemas
-  const validated = await safeValidateUIMessages<ChatMessage>({ messages: recent, tools: chatTools })
+  const validated = await safeValidateUIMessages<ChatMessage>({ messages: recent, tools })
   if (!validated.success) {
     return new Response('Invalid conversation data.', { status: 400 })
   }
@@ -87,17 +103,17 @@ export async function POST(req: Request) {
   // Keep text AND tool calls/results, so follow-up questions
   // ("and the 4th one?") can use earlier answers
   const modelMessages = await convertToModelMessages(messages, {
-    tools: chatTools,
+    tools,
     ignoreIncompleteToolCalls: true,
   })
 
   const result = streamText({
     model: openai('gpt-4o-mini'),
-    system: buildSystemPrompt(),
+    system: buildSystemPrompt(caller.agent),
     messages: modelMessages,
     stopWhen: stepCountIs(5),
     maxOutputTokens: MAX_OUTPUT_TOKENS,
-    tools: chatTools,
+    tools,
     onError: ({ error }) => {
       console.error('CHAT ERROR:', error)
     },

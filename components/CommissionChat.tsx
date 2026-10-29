@@ -5,6 +5,7 @@ import { useState, useMemo, useRef, useEffect } from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { ChatMessage } from '@/lib/chatTools'
+import { authHeaders } from '@/lib/authFetch'
 
 // What to show while each tool is running / after it finished
 const TOOL_LABELS: Record<string, string> = {
@@ -63,7 +64,7 @@ function ToolStatus({ name, state }: { name: string; state: string }) {
 }
 
 export default function CommissionChat() {
-  const transport = useMemo(() => new DefaultChatTransport({ api: '/api/chat' }), [])
+  const transport = useMemo(() => new DefaultChatTransport({ api: '/api/chat', headers: authHeaders }), [])
   const { messages, sendMessage, status, error, setMessages, clearError } = useChat<ChatMessage>({ transport })
   const [input, setInput] = useState('')
   const [open, setOpen] = useState(false)

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { authFetch } from '@/lib/authFetch'
 import { useForm, SubmitHandler } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -50,13 +51,17 @@ export default function AddSaleForm({ onSaleAdded }: { onSaleAdded: () => void }
 
   const onSubmit: SubmitHandler<SaleForm> = async (data) => {
   try {
-    const res = await fetch('/api/sales', {
+    const res = await authFetch('/api/sales', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     })
 
-    if (!res.ok) throw new Error('Failed to add sale')
+    if (!res.ok) {
+      const body = await res.json().catch(() => null)
+      toast.error(body?.error ?? 'Failed to add sale. Please try again.')
+      return
+    }
 
     toast.success('Sale added successfully!')
     reset()

@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
+import { requireAdmin } from '@/lib/serverAuth'
 import { z } from 'zod'
 
 const statusSchema = z.object({
@@ -6,8 +7,15 @@ const statusSchema = z.object({
 })
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const admin = await requireAdmin(req)
+  if (admin instanceof Response) return admin
   const { id } = await params
-  const body = await req.json()
+  let body: unknown
+  try {
+    body = await req.json()
+  } catch {
+    return Response.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
   const parsed = statusSchema.safeParse(body)
 
   if (!parsed.success) {

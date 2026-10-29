@@ -1,18 +1,52 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import StatCard from '@/components/StatCard'
 import SalesTable from '@/components/SalesTable'
 import CommissionChart from '@/components/CommissionChart'
 import AddSaleForm from '@/components/AddSaleForm'
-import { LayoutDashboard } from 'lucide-react'
+import { LayoutDashboard, LogOut } from 'lucide-react'
 import AddAgentForm from '@/components/AddAgentForm'
 import CommissionChat from '@/components/CommissionChat'
+import { useAuth } from '@/components/AuthProvider'
 
 export default function Dashboard() {
-  const [role, setRole] = useState<'admin' | 'agent'>('admin')
+  const router = useRouter()
+  const { loading, session, agent, signOut } = useAuth()
   const [refreshKey, setRefreshKey] = useState(0)
-  const [currentAgent, setCurrentAgent] = useState('Mike Torres')
+
+  // Not signed in? Go to the login page
+  useEffect(() => {
+    if (!loading && !session) router.replace('/login')
+  }, [loading, session, router])
+
+  if (loading || !session) {
+    return (
+      <main className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <p className="text-gray-400 text-sm">Loading…</p>
+      </main>
+    )
+  }
+
+  // Signed in, but this login isn't linked to an agent row
+  if (!agent) {
+    return (
+      <main className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-xl shadow-md p-6 max-w-sm text-center space-y-3">
+          <p className="text-gray-800 font-medium">Your account isn&apos;t linked to an agent yet.</p>
+          <p className="text-sm text-gray-500">Ask your admin to add you as an agent with {session.user.email}.</p>
+          <button onClick={signOut} className="text-sm text-blue-600 hover:underline">
+            Sign out
+          </button>
+        </div>
+      </main>
+    )
+  }
+
+  // Role and name come from the login, not from a toggle
+  const role = agent.role
+  const currentAgent = agent.name
 
   return (
     <main className="min-h-screen bg-gray-50 p-8">
@@ -26,22 +60,26 @@ export default function Dashboard() {
           </h1>
         </div>
 
-        {/* Role Toggle */}
+        {/* Signed-in user */}
         <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-500">View as:</span>
-          <select
-  value={role}
-  onChange={(e) => {
-    const newRole = e.target.value as 'admin' | 'agent'
-    setRole(newRole)
-    setCurrentAgent(newRole === 'agent' ? 'Mike Torres' : '')
-  }}
-  className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
->
-  <option value="admin">Admin</option>
-  <option value="agent">Agent</option>
-</select>
-           
+          <div className="text-right">
+            <p className="text-sm font-medium text-gray-800">{agent.name}</p>
+            <p className="text-xs text-gray-500">{session.user.email}</p>
+          </div>
+          <span
+            className={`text-xs font-medium px-2 py-1 rounded-full ${
+              role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+            }`}
+          >
+            {role === 'admin' ? 'Admin' : 'Agent'}
+          </span>
+          <button
+            onClick={signOut}
+            className="flex items-center gap-1.5 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-100"
+          >
+            <LogOut size={16} />
+            Sign out
+          </button>
         </div>
       </div>
 

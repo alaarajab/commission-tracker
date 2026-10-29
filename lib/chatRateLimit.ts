@@ -23,8 +23,9 @@ function hashIp(ip: string): string {
   return createHash('sha256').update(ip).digest('hex')
 }
 
-export async function checkChatRateLimit(req: Request): Promise<RateLimitResult> {
-  const ipHash = hashIp(getClientIp(req))
+// Limit per logged-in user when we know who they are, otherwise per IP address
+export async function checkChatRateLimit(req: Request, userId?: string): Promise<RateLimitResult> {
+  const ipHash = hashIp(userId ? `user:${userId}` : getClientIp(req))
   const now = Date.now()
 
   // Record this request first, then count. Counting after the insert
